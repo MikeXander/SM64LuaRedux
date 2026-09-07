@@ -120,47 +120,64 @@ function Engine.getgoal(targetspd) -- getting angle for target speed
 	return math.floor(math.acos((targetspd - 0.35 - Memory.current.mario_f_speed) / 1.5) * 32768 / math.pi)
 end
 
+--- Returns the target angle to hold on the current frame to achieve arctan straining.
+--- @param r the preference ratio of forwards over sideways movement along the goal angle.
+---		To maximize distance along the target angle, use r=1.
+---		For sideways distance use |r|<1, for forwards distance use |r|>1.
+---		For backwards distance use r<0.
+---		This is automatically determined when Match Angle is on.
+--- @param d the preference ratio of maximizing speed over distance
+---		To maximize for distance only, use d=0.
+---		To maximize for speed only, use d>>0.
+--- @param n the total number of frames to arctan strain for
+--- @param s the frame to start the arctan strain segment on
+--- @param goal the overall target angle
 function Engine.getArctanAngle(r, d, n, s, goal)
-	-- r is ratio, d is displacement (offset), n is number of frames and  s is starting frame
-	s = s - 1
-	if (s < Memory.current.mario_global_timer and s > Memory.current.mario_global_timer - n - 1) then
-		yaw = 0
-		if (Memory.current.mario_action == AIR_HIT_WALL or Memory.current.mario_action == SOFT_BONK or Memory.current.mario_action == BACKWARDS_AIR_KB or Memory.current.mario_action == HOLDING_POLE or Memory.current.mario_action == CLIMBING_POLE and ENABLE_REVERSE_YAW_ON_WALLKICK) then
-			yaw = 32768
-		end
-		if Settings.tas.movement_mode == MovementModes.match_angle then
-			yaw = (corrected_facing_yaw + yaw) % 65536
-			if (math.abs(yaw - goal) > 16384 and math.abs(yaw - goal) <= 49152) then
-				r = -math.abs(math.tan(math.pi / 2 -
-					(Engine.get_effective_angle(yaw) - goal) * math.pi / 32768))
-			else
-				r = math.abs(math.tan(math.pi / 2 -
-					(Engine.get_effective_angle(yaw) - goal) * math.pi / 32768))
-			end
-		end
-		if (Settings.tas.reverse_arc == false) then
-			dyaw = math.floor((math.pi / 2 - math.atan(0.15 * (r * math.max(1, (n + 1 - Memory.current.mario_global_timer + s)) + d / math.min(1, n + 1 - Memory.current.mario_global_timer + s)))) *
-				32768 / math.pi)
-			if (Settings.tas.movement_mode == MovementModes.match_angle) then
-				if ((yaw - goal + 32768) % 65536 - 32768 > 0) then
-					return yaw - dyaw
-				end
-				return yaw + dyaw
-			end
-			return (Engine.getDyaw(dyaw) + yaw) % 65536
-		end
-		dyaw = math.floor((math.pi / 2 - math.atan(0.15 * (r * math.max(1, (Memory.current.mario_global_timer - s)) + d / math.min(1, Memory.current.mario_global_timer - s)))) *
-			32768 / math.pi)
-		if (Settings.tas.movement_mode == MovementModes.match_angle) then
-			if ((yaw - goal + 32768) % 65536 - 32768 > 0) then
-				return yaw - dyaw
-			end
-			return yaw + dyaw
-		end
-		return (Engine.getDyaw(dyaw) + yaw) % 65536
+	local t = Memory.current.mario_global_timer - s + 1 -- current frame within strain
+	if (t <= 0 or n < t) then
+		return goal -- outside of frame range
 	end
-	return goal
+
+	local yaw = 0
+	if (Memory.current.mario_action == AIR_HIT_WALL or
+		Memory.current.mario_action == SOFT_BONK or
+		Memory.current.mario_action == BACKWARDS_AIR_KB or
+		Memory.current.mario_action == HOLDING_POLE or
+		Memory.current.mario_action == CLIMBING_POLE and ENABLE_REVERSE_YAW_ON_WALLKICK) then
+		yaw = 32768
+	end
+
+	if Settings.tas.movement_mode == MovementModes.match_angle then
+		yaw = (corrected_facing_yaw + yaw) % 65536
+		r = math.abs(math.tan(math.pi / 2 - (Engine.get_effective_angle(yaw) - goal) * math.pi / 32768))
+		if (math.abs(yaw - goal) > 16384 and math.abs(yaw - goal) <= 49152) then
+			r = -r
+		end
+	end
+
+	local dyaw
+	if (Settings.tas.reverse_arc) then
+		dyaw = Strain.arccot(r, d, t + 1)
+	else
+		dyaw = Strain.arccot(r, d, n - t)
+	end
+
+	if (Settings.tas.movement_mode == MovementModes.match_angle) then
+		if ((yaw - goal + 32768) % 65536 - 32768 > 0) then
+			return yaw - dyaw
+		end
+		return yaw + dyaw
+	end
+	return (Engine.getDyaw(dyaw) + yaw) % 65536
 end
+
+Strain = {
+	arccot = function(r, d, t) -- expects t > 0
+		angle = math.atan(0.15 * (r * t + d)) 
+		angle = angle / math.pi * 32768
+		return math.floor(16384 - angle)
+	end
+}
 
 Engine.inputsForAngle = function(goal, curr_input)
 	corrected_facing_yaw = Memory.current.mario_facing_yaw
