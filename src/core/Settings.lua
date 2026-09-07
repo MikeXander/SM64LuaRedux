@@ -29,7 +29,9 @@ function NewTASState()
         reverse_arc = false,
         atan_start = 0,
         atan_r = 1.0,
+        atan_r_precision = 1,
         atan_d = 0.0,
+        atan_d_precision = 1,
         atan_n = 10,
     }
 end

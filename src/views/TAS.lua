@@ -202,33 +202,59 @@ return {
                 'E: ' .. tostring(Settings.atan_exp),
                 function()
                     Settings.atan_exp = math.max(-4, math.min(Settings.atan_exp + 1, 4))
+                    -- Check to see if we can drop a digit from the parameter display values.
+                    -- i.e. if R=1.20 and E increments from -2 to -1, then display R=1.2 instead.
+                    -- This will display a minimum of 1 decimal digit.
+                    if Settings.atan_exp > 0 then return end
+                    if -Settings.atan_exp < Settings.tas.atan_r_precision then
+                        local old_precision = Settings.tas.atan_r_precision
+                        local new_precision = math.max(math.min(old_precision, -Settings.atan_exp), 1)
+                        local old_r = string.format('%.'..old_precision..'f', Settings.tas.atan_r)
+                        local new_r = string.format('%.'..new_precision..'f', Settings.tas.atan_r)
+                        if tonumber(old_r) == tonumber(new_r) then
+                            Settings.tas.atan_r_precision = new_precision
+                        end
+                    end
+                    if -Settings.atan_exp < Settings.tas.atan_d_precision then
+                        local old_precision = Settings.tas.atan_d_precision
+                        local new_precision = math.max(math.min(old_precision, -Settings.atan_exp), 1)
+                        local old_d = string.format('%.'..old_precision..'f', Settings.tas.atan_d)
+                        local new_d = string.format('%.'..new_precision..'f', Settings.tas.atan_d)
+                        if tonumber(old_d) == tonumber(new_d) then
+                            Settings.tas.atan_d_precision = new_precision
+                        end
+                    end
                 end,
                 function()
                     Settings.atan_exp = math.max(-4, math.min(Settings.atan_exp - 1, 4))
                 end)
 
             atan_field(1,
-                'R: ' .. tostring(Settings.tas.atan_r),
+                string.format('R: %.' .. Settings.tas.atan_r_precision .. 'f', Settings.tas.atan_r),
                 function()
                     Settings.tas.atan_r = Settings.tas.atan_r + math.pow(10, Settings.atan_exp)
+                    Settings.tas.atan_r_precision = math.max(Settings.tas.atan_r_precision, -Settings.atan_exp)
                 end,
                 function()
                     Settings.tas.atan_r = Settings.tas.atan_r - math.pow(10, Settings.atan_exp)
+                    Settings.tas.atan_r_precision = math.max(Settings.tas.atan_r_precision, -Settings.atan_exp)
                 end)
 
 
             atan_field(2,
-                'D: ' .. tostring(Settings.tas.atan_d),
+                string.format('D: %.' .. Settings.tas.atan_d_precision .. 'f', Settings.tas.atan_d),
                 function()
                     Settings.tas.atan_d = Settings.tas.atan_d + math.pow(10, Settings.atan_exp)
+                    Settings.tas.atan_d_precision = math.max(Settings.tas.atan_d_precision, -Settings.atan_exp)
                 end,
                 function()
                     Settings.tas.atan_d = Settings.tas.atan_d - math.pow(10, Settings.atan_exp)
+                    Settings.tas.atan_d_precision = math.max(Settings.tas.atan_d_precision, -Settings.atan_exp)
                 end)
 
             atan_field(3,
                 'N: ' .. tostring(Settings.tas.atan_n),
-                function()
+                function() -- minimum change of 0.25
                     Settings.tas.atan_n = math.max(0,
                         Settings.tas.atan_n + math.pow(10, math.max(-0.6020599913279624, Settings.atan_exp)), 2)
                 end,
@@ -239,7 +265,7 @@ return {
 
             atan_field(4,
                 'S: ' .. tostring(Settings.tas.atan_start),
-                function()
+                function() -- minimum change of 1
                     Settings.tas.atan_start = math.max(0,
                         Settings.tas.atan_start + math.pow(10, math.max(0, Settings.atan_exp)))
                 end,
