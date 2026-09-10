@@ -17,8 +17,8 @@ local LONG_JUMP = 0x03000888
 local LONG_JUMP_LAND = 0x00000479
 local FREEFALL_LAND_STOP = 0x0C000232
 local CROUCH_SLIDE = 0x04808459
-local HOLD_WALKING = 0x00000442 -- Replace 0x04000442 with this?
-local TURNING_AROUND = 0x00000443 -- Replace 0x04000443 with this?
+local HOLD_WALKING = 0x00000442
+local TURNING_AROUND = 0x00000443
 local BRAKING = 0x04000445 
 local HOLD_BUTT_SLIDE = 0x00840454
 local BUTT_SLIDE = 0x00840452
@@ -219,8 +219,8 @@ Engine.get_point99_trick_goal_angle = function(action, v, current_input, movemen
 			action == DECELERATING or
 			action == LAVA_BOOST_LAND or
 			action == FREEFALL_LAND_STOP or
-			action == 0x04000442 or -- ACT_HOLD_WALKING ?
-			action == 0x04000443 or -- ACT_TURNING_AROUND ?
+			action == HOLD_WALKING or
+			action == TURNING_AROUND or
 			action == LAVA_BOOST or
 			action == BRAKING or
 			action == HOLD_BUTT_SLIDE or
