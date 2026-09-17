@@ -303,7 +303,7 @@ return {
         ugui.label({
             uid = UID.StickMag,
             rectangle = grid_rect(4, YORG + 1, 4, 1),
-            text = 'Mag: ' .. Formatter.u(Engine.get_magnitude_for_stick(stick_x, stick_y), 0),
+            text = 'Mag: ' .. Formatter.u(Engine.get_magnitude_for_stick(stick_x, stick_y), 2),
             color = foreground_color,
             font_size = theme.font_size * Drawing.scale * 1.25,
             font_name = 'Consolas',
@@ -313,14 +313,14 @@ return {
 
         Settings.tas.goal_mag = math.abs(ugui.numberbox({
             uid = UID.GoalMag,
-            rectangle = grid_rect(4, YORG + 2, 2, 1),
-            places = 3,
+            rectangle = grid_rect(4, YORG + 2, 1.5, 1),
+            places = 2,
             value = Settings.tas.goal_mag,
         }))
 
         if ugui.button({
                 uid = UID.ResetMag,
-                rectangle = grid_rect(4, YORG + 3, 2, 1),
+                rectangle = grid_rect(4, YORG + 3, 4, 1),
                 text = Locales.str('MAG_RESET'),
                 styler_mixin = {
                     font_size = theme.font_size * Drawing.scale * 0.9,
@@ -329,23 +329,11 @@ return {
             action.invoke(ACTION_RESET_MAGNITUDE)
         end
 
-        local _, meta = ugui.toggle_button({
-            uid = UID.HighMagnitude,
-            rectangle = grid_rect(6, YORG + 3, 2, 1),
-            text = Locales.str('MAG_HI'),
-            is_checked = Settings.tas.high_magnitude,
-            styler_mixin = {
-                font_size = theme.font_size * Drawing.scale * 0.9,
-            },
-        })
-        if meta.signal_change == ugui.signal_change_states.started then
-            action.invoke(ACTION_TOGGLE_HIGH_MAGNITUDE)
-        end
-
         if ugui.button({
                 uid = UID.SpeedKick,
-                rectangle = grid_rect(6, YORG + 2, 2, 1),
+                rectangle = grid_rect(5.5, YORG + 2, 2.5, 1),
                 text = Locales.str('SPDKICK'),
+                is_checked = Settings.tas.maximize_airspeed,
             }) then
             action.invoke(ACTION_SET_SPDKICK)
         end
@@ -361,7 +349,7 @@ return {
                 height = joystick_rect[4],
             },
             position = displayPosition,
-            mag = Settings.tas.goal_mag >= 127 and 0 or Settings.tas.goal_mag,
+            mag = Settings.tas.goal_mag >= 64 and 0 or Settings.tas.goal_mag + 6,
             x_snap = 8,
             y_snap = 8,
         })

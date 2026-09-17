@@ -69,12 +69,44 @@ function Engine.stick_for_input_y(state)
 	return state.movement_mode == MovementModes.manual and state.manual_joystick_y or Joypad.input.Y or 0
 end
 
----Gets the magnitude of the joystick input, accounting for the deadzone.
----@param x number
----@param y number
----@return number
+-- turn a raw joystick value into a value that the game uses for computations
+local function normalize_joystick_coordinate(n)
+	if n < -128 then
+		n = -128
+	elseif n > 127 then
+		n = 127
+	elseif math.abs(n) < 8 then
+		return 0
+	end
+	if n > 0 then
+		return n - 6
+	end
+	return n + 6
+end
+
+-- return the normalized joystick x, y, and magnitude based on raw joystick inputs
+-- Note: most (but not all!) calculations in game use m->intendedYaw = (mag * mag / 64) / 2
+-- Note 2: since this is called frequently, having a local version is important for performance
+local function normalize_joystick(x, y)
+	x = normalize_joystick_coordinate(x)
+	y = normalize_joystick_coordinate(y)
+	local mag = math.sqrt(x*x + y*y)
+	if mag > 64 then
+		return x * 64 / mag, y * 64 / mag, 64
+	end
+	return x, y, mag
+end
+
+Engine.normalize_joystick = normalize_joystick
+
+--- Gets the magnitude of the joystick input, accounting for the deadzone.
+--- @param x int
+--- @param y int
+--- @return number
 function Engine.get_magnitude_for_stick(x, y)
-	return math.sqrt(math.max(0, math.abs(x) - 6) ^ 2 + math.max(0, math.abs(y) - 6) ^ 2)
+	local mag = 0
+	x, y, mag = normalize_joystick(x, y)
+	return mag
 end
 
 function Engine.get_effective_angle(angle)
@@ -527,39 +559,15 @@ function Engine.get_h_sliding_speed()
 	return math.sqrt((Memory.current.mario_x_sliding_speed ^ 2) + (Memory.current.mario_z_sliding_speed ^ 2))
 end
 
-local function clamp(min, n, max)
-	if n < min then return min end
-	if n > max then return max end
-	return n
-end
-
-local function effective_angle(x, y)
-	if math.abs(x) < 8 then
-		x = 0
-	elseif x > 0 then
-		x = x - 6
-	else
-		x = x + 6
-	end
-	if math.abs(y) < 8 then
-		y = 0
-	elseif y > 0 then
-		y = y - 6
-	else
-		y = y + 6
-	end
-	return math.atan2(-y, x)
-end
-
 --- Modifies input.X and input.Y to have a similar angle, but a smaller magnitude.
---- This aims to match the angle as close as it can, given that there are a discrete
---- number of possible input angles in SM64.
+--- This aims to match the angle as close as it can.
 --- @param input table # joystick inputs {X: int, Y: int}
---- @param goal_mag int # the target maximum magnitude
---- @param use_high_mag boolean # prefer having a higher magnitude over a more accurate angle
---- TODO: we can actually determine whether a better angle or higher magnitude is faster
-Engine.scale_inputs_to_magnitude = function(input, goal_mag, use_high_mag)
-	if goal_mag >= 127 then return end
+--- @param goal_mag int # the maximum allowed magnitude for the choice of inputs
+--- @param maximize_airspeed boolean # when true, it choses inputs based on the air speed
+---		equations instead of based on how close the angle is to the original input
+Engine.scale_inputs_to_magnitude = function(input, goal_mag, maximize_airspeed, debug)
+	-- all inputs above a magnitude of 64 are scaled down to 64 anyways
+	if goal_mag >= 64 then return end
 
 	local start_x, start_y = input.X, input.Y
 	local x0, y0 = 0, 0
@@ -584,31 +592,52 @@ Engine.scale_inputs_to_magnitude = function(input, goal_mag, use_high_mag)
 	if x0 ~= x0 then x0 = 0 end
 	if y0 ~= y0 then y0 = 0 end
 
-	-- search neighbourhood for input with greatest component in goal direction
-	local closest_x, closest_y = x0, y0
-	local best_error = -1
-	local goal_angle = effective_angle(start_x, start_y)
+	-- bruteforce search in a neighbourhood for better inputs.
+	-- choice of search range is arbitrary but seems to work consistently.
+	local best_x, best_y = x0, y0
+	local best_score = nil
+	local x, y, mag
+	x, y, mag = normalize_joystick(start_x, start_y)
+	local goal_angle = math.atan2(-y, x)
+	if debug then
+		local x00, y00, mag0
+		x00, y00, mag0 = normalize_joystick(x0, y0)
+		print(string.format(
+			"(%.1f, %.1f) [%f] -> (%d, %d) [%f]",
+			x, y, mag, x0, y0, mag0
+		))
+	end
 	for i = -32, 32 do
-		local x = clamp(-127, x0 + i, 127)
 		for j = -32, 32 do
-			local y = clamp(-127, y0 + j, 127)
-			local mag = Engine.get_magnitude_for_stick(x, y)
-			if (mag <= goal_mag) and (mag * mag >= best_error) then
-				local angle = effective_angle(x, y)
-				local this_error = math.cos(angle - goal_angle)
-				if (use_high_mag) then
-					this_error = this_error * mag * mag
+			x, y, mag = normalize_joystick(x0 + i, y0 + j)
+			if mag <= goal_mag then
+				local score = nil
+				if maximize_airspeed then
+					-- air movement hspd update without constant factors
+					local intendedYaw = Angles.atan2s(-y, x) + Memory.current.camera_angle
+					score = mag * mag * Angles.coss(intendedYaw - Memory.current.mario_facing_yaw)
+					if debug and score > 2280 then
+						print(string.format("(%d, %d) -> %d -> %f", x0 + i, y0 + j, intendedYaw, score))
+						print(string.format("\tatan2s(%d, %d) = %d", -y, x, intendedYaw))
+					end
+				else -- match closest angle
+					local angle = math.atan2(-y, x)
+					score = math.cos(angle - goal_angle)
 				end
-				if this_error > best_error then
-					best_error = this_error
-					closest_x, closest_y = x, y
+				if score ~= nil and (best_score == nil or score > best_score) then
+					best_score = score
+					best_x, best_y = x0 + i, y0 + j
 				end
 			end
 		end
 	end
 
-	if math.abs(closest_x) < 8 then closest_x = 0 end
-	if math.abs(closest_y) < 8 then closest_y = 0 end
-
-	input.X, input.Y = closest_x, closest_y
+	-- normalize again in case it picks something in the deadzone
+	if math.abs(best_x) < 8 then
+		best_x = 0
+	end
+	if math.abs(best_y) < 8 then
+		best_y = 0
+	end
+	input.X, input.Y = best_x, best_y
 end

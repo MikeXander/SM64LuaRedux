@@ -36,7 +36,7 @@ return {
     ATAN_STRAIN_REV = 'I',
     MAG_RESET = 'Vider',
     MAG_HI = 'Élevé',
-    SPDKICK = 'Spdkick',
+    SPDKICK = 'Speedkick',
     FRAMEWALK = 'Framewalk',
     SWIM = 'Nager',
     -- Semantic Workflow Tab

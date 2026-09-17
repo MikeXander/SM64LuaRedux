@@ -25,7 +25,6 @@ ACTION_TOGGLE_STRAIN_RIGHT = ROOT .. 'D-Yaw > Strain Right'
 ACTION_SET_GOAL_ANGLE = ROOT .. 'Set Angle... ---'
 ACTION_RESET_MAGNITUDE = ROOT .. 'Magnitude --- > Reset'
 ACTION_SET_MAGNITUDE = ROOT .. 'Magnitude --- > Set... ---'
-ACTION_TOGGLE_HIGH_MAGNITUDE = ROOT .. 'Magnitude --- > High-Magnitude'
 ACTION_SET_SPDKICK = ROOT .. 'Speedkick'
 ACTION_TOGGLE_FRAMEWALK = ROOT .. 'Framewalk'
 ACTION_TOGGLE_SWIM = ROOT .. 'Swim'
@@ -254,8 +253,8 @@ actions[#actions + 1] = wrap_params({
 actions[#actions + 1] = wrap_params({
     path = ACTION_RESET_MAGNITUDE,
     on_press = function()
-        Settings.tas.goal_mag = 127
-        Settings.tas.high_magnitude = false
+        Settings.tas.goal_mag = 64
+        Settings.tas.maximize_airspeed = false
     end,
 })
 
@@ -270,18 +269,7 @@ actions[#actions + 1] = wrap_params({
     },
     on_press = function(params)
         local magnitude = tonumber(params.magnitude)
-        Settings.tas.goal_mag = magnitude % 128
-    end,
-})
-
-actions[#actions + 1] = wrap_params({
-    path = ACTION_TOGGLE_HIGH_MAGNITUDE,
-    on_press = function()
-        Settings.tas.high_magnitude = not Settings.tas.high_magnitude
-        action.notify_active_changed(ACTION_TOGGLE_HIGH_MAGNITUDE)
-    end,
-    get_active = function()
-        return Settings.tas.high_magnitude
+        Settings.tas.goal_mag = math.min(magnitude, 64)
     end,
 })
 
@@ -290,10 +278,11 @@ actions[#actions + 1] = wrap_params({
     on_press = function()
         if Settings.tas.goal_mag ~= 48 then
             Settings.tas.goal_mag = 48
+            Settings.tas.maximize_airspeed = true
 		else
-		    Settings.tas.goal_mag = 127
+		    Settings.tas.goal_mag = 64
+            Settings.tas.maximize_airspeed = false
         end
-        Settings.tas.high_magnitude = true
     end,
 })
 
