@@ -83,6 +83,7 @@ actions[#actions + 1] = wrap_params({
     hotkey = { ctrl = true, key = string.byte('2') },
     on_press = function()
         Settings.tas.movement_mode = MovementModes.match_yaw
+        Settings.tas.atan_readonly_r = nil
         action.notify_active_changed(ACTION_MOVEMENT_MODE .. '>*')
     end,
     get_active = function()

@@ -155,7 +155,7 @@ end
 --- Returns the target angle to hold on the current frame to achieve arctan straining.
 --- @param r number # the preference ratio of forwards over sideways movement along the goal angle.
 ---		To maximize distance along the target angle, use r=1.
----		To maximize x distance use |r|<1, for z distance use |r|>1.
+---		To maximize sideways distance use |r|<1, for forwards distance use |r|>1.
 ---		For backwards distance use r<0.
 ---		This is automatically determined when Match Angle is on.
 --- @param d number # the preference ratio of maximizing speed over distance
@@ -190,6 +190,10 @@ function Engine.get_arctan_angle(r, d, n, s, goal, inverse_strain, movement_mode
 		if (math.abs(yaw - goal) > 16384 and math.abs(yaw - goal) <= 49152) then
 			r = -r
 		end
+		-- show the user the automatic choice without changing their choice
+		Settings.tas.atan_readonly_r = r
+	else
+		Settings.tas.atan_readonly_r = nil
 	end
 
 	local dyaw
