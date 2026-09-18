@@ -85,7 +85,7 @@ local function normalize_joystick_coordinate(n)
 end
 
 -- return the normalized joystick x, y, and magnitude based on raw joystick inputs
--- Note: most (but not all!) calculations in game use m->intendedYaw = (mag * mag / 64) / 2
+-- Note: most (but not all!) calculations in game use m->intendedMag = (mag * mag / 64) / 2
 -- Note 2: since this is called frequently, having a local version is important for performance
 local function normalize_joystick(x, y)
 	x = normalize_joystick_coordinate(x)
@@ -247,6 +247,7 @@ Engine.get_point99_trick_goal_angle = function(action, v, current_input, movemen
 			action == HOLDING_POLE or
 			action == CLIMBING_POLE)
 	
+	-- grounded (or lava boost)
 	local GROUNDED_ACTION = (action == WALKING or
 			action == DECELERATING or
 			action == LAVA_BOOST_LAND or
@@ -260,6 +261,7 @@ Engine.get_point99_trick_goal_angle = function(action, v, current_input, movemen
 			(JUMP_LAND <= action and action <= SIDE_FLIP_LAND) or
 			(HOLD_JUMP_LAND <= action and action <= HOLD_QUICKSAND_JUMP_LAND))
 
+	-- starting a long jump
 	if (v > 937 / 30 and v < 31.9 + offset * 3000000 and
 			(action == CROUCH_SLIDE or action == LONG_JUMP_LAND) and
 			A_PRESSED and (B_HELD or not current_input.B) and
@@ -267,11 +269,13 @@ Engine.get_point99_trick_goal_angle = function(action, v, current_input, movemen
 		speedsign = 1
 		targetspeed = 48 - v / 2
 		if (v > 32) then
+			targetspeed = 48
 			goal = get_dyaw(13927)
 		else
 			goal = get_dyaw(get_goal_angle(targetspeed))
 		end
 
+	-- starting a slide kick
 	elseif (v >= 10 and offset ~= 0 and v < 34.85 and
 			action == CROUCH_SLIDE and
 			(A_HELD or not current_input.A) and B_PRESSED and
@@ -285,6 +289,7 @@ Engine.get_point99_trick_goal_angle = function(action, v, current_input, movemen
 			goal = get_dyaw(13927)
 		end
 
+	-- long jump land (backwards)
 	elseif (v > -337 / 30 - offset / 1.5 and v < -9.9 and
 			action == LONG_JUMP_LAND and
 			movement_mode == MovementModes.reverse_yaw) then
@@ -293,6 +298,7 @@ Engine.get_point99_trick_goal_angle = function(action, v, current_input, movemen
 		if (v < -11.9) then targetspeed = targetspeed - 2 end
 		goal = get_dyaw(get_goal_angle(targetspeed))
 
+	-- long jump (in the air)
 	elseif (v > 46.85 and v < 47.85 + offset and
 			action == LONG_JUMP and
 			movement_mode == MovementModes.match_yaw) then
@@ -301,6 +307,7 @@ Engine.get_point99_trick_goal_angle = function(action, v, current_input, movemen
 		if (v > 49.85) then targetspeed = targetspeed + 1 end
 		goal = get_dyaw(get_goal_angle(targetspeed))
 
+	-- air movement
 	elseif (v > 30.85 and v < 31.85 + offset and
 			(not GROUNDED_ACTION or (action == DOUBLE_JUMP_LAND and HAS_WINGCAP and A_PRESSED)) and
 			action ~= LONG_JUMP and
@@ -317,6 +324,7 @@ Engine.get_point99_trick_goal_angle = function(action, v, current_input, movemen
 			goal = (goal + 32768) % 65536
 		end
 
+	-- air dive
 	elseif (v > 15.85 and v < 16.85 + offset and
 			(((action == TRIPLE_JUMP or
 			action == SPECIAL_TRIPLE_JUMP or
@@ -334,6 +342,7 @@ Engine.get_point99_trick_goal_angle = function(action, v, current_input, movemen
 			goal = (goal + 32768) % 65536
 		end
 
+	-- crouching/backflip land (backwards)
 	elseif (v > -32 and v < 32 and
 			((action >= CROUCHING and action <= START_CRAWLING) or
 			action == BACKFLIP_LAND or
@@ -342,6 +351,7 @@ Engine.get_point99_trick_goal_angle = function(action, v, current_input, movemen
 		speedsign = -1
 		goal = get_dyaw(18840)
 
+	-- wingcap triple jump (backwards)
 	elseif (v > -16.85 - offset and v < -14.85 and
 			action ~= LONG_JUMP_LAND and
 			((not GROUNDED_ACTION and
@@ -359,6 +369,7 @@ Engine.get_point99_trick_goal_angle = function(action, v, current_input, movemen
 		if (v < -17.85) then targetspeed = targetspeed - 2 end
 		goal = get_dyaw(get_goal_angle(targetspeed))
 
+	-- air dive (backwards)
 	elseif (v > -31.85 - offset and v < -29.85 and
 			action ~= LONG_JUMP_LAND and
 			(((action == TRIPLE_JUMP or
@@ -376,6 +387,7 @@ Engine.get_point99_trick_goal_angle = function(action, v, current_input, movemen
 		if (v < -32.85) then targetspeed = targetspeed - 2 end
 		goal = get_dyaw(get_goal_angle(targetspeed))
 
+	-- single jump (backwards)
 	elseif (v > -21.0625 - offset / 0.8 and v < -18.5625 and
 			action ~= LONG_JUMP_LAND and
 			(action ~= DOUBLE_JUMP_LAND or not HAS_WINGCAP) and
@@ -387,6 +399,7 @@ Engine.get_point99_trick_goal_angle = function(action, v, current_input, movemen
 		if (v < -22.3125) then targetspeed = targetspeed - 2 end
 		goal = get_dyaw(get_goal_angle(targetspeed))
 
+	-- single jump
 	elseif (v > 38.5625 and v < 39.8125 + offset / 0.8 and
 			action ~= LONG_JUMP_LAND and
 			action ~= LONG_JUMP and
@@ -399,6 +412,7 @@ Engine.get_point99_trick_goal_angle = function(action, v, current_input, movemen
 		if (v > 42.3125) then targetspeed = targetspeed + 1 end
 		goal = get_dyaw(get_goal_angle(targetspeed))
 
+	-- triple jump dive
 	elseif (v > 20 and v < 21.0625 + offset / 0.8 and
 			action == DOUBLE_JUMP_LAND and
 			not HAS_WINGCAP and A_PRESSED and B_PRESSED and
@@ -408,10 +422,66 @@ Engine.get_point99_trick_goal_angle = function(action, v, current_input, movemen
 		if (v > 23.5625) then targetspeed = targetspeed + 1 end
 		goal = get_dyaw(get_goal_angle(targetspeed))
 	end
-	if goal ~= nil then
-		return goal + 32 * speedsign * get_dyaw_sign()
+
+	if goal == nil then
+		return nil
 	end
-	return nil
+
+	-- given controller inputs, compute updated air speed and return the
+	-- newly computed speed and whether it is under the target or not
+	local verify_speed_under_threshold = function(x, y, mag)
+		local intendedMag = mag * mag / 4096
+		local indendedYaw = Angles.atan2s(-y, x) + Memory.current.camera_angle
+		local new_v = v - 0.35
+		if v < 0 then
+			new_v = v + 0.35
+		end
+		new_v = new_v + 1.5 * intendedMag * Angles.coss(indendedYaw - Memory.current.mario_facing_yaw)
+		local valid = new_v <= targetspeed
+		if targetspeed < 0 then
+			valid = new_v >= targetspeed
+		end
+		return new_v, valid
+	end
+
+	return goal + 32 * speedsign * get_dyaw_sign(), verify_speed_under_threshold
+end
+
+--- Bruteforce search in a neighbourhood for better inputs.
+--- @param x0 int # initial joystick x coordinate to search around
+--- @param y0 int # initial joystick y coordinate to search around
+--- @param metric function(x, y, mag) # a scoring function to determine
+---		which input to choose. Higher is better. Inputs with a score of
+---		nil will be excluded.
+local function find_best_joystick(x0, y0, metric, debug)
+	local best_x, best_y = x0, y0
+	local best_score = nil
+	local x, y, mag
+
+	-- choice of search range is arbitrary but seems to work consistently
+	for i = -32, 32 do
+		for j = -32, 32 do
+			x, y, mag = normalize_joystick(x0 + i, y0 + j)
+			local score = metric(x, y, mag)
+			if debug and math.abs(y0 + j) < 10 and 125 < x0+i and x0+i < 129 then
+				--print(string.format("(%d, %d) -> (%.1f, %.1f) | %f | %f", x0+i, y0+j, x, y, mag, score))
+			end
+			if score ~= nil and (best_score == nil or score > best_score) then
+				best_score = score
+				best_x, best_y = x0 + i, y0 + j
+			end
+		end
+	end
+
+	-- normalize again in case it picks something in the deadzone
+	if math.abs(best_x) < 8 then
+		best_x = 0
+	end
+	if math.abs(best_y) < 8 then
+		best_y = 0
+	end
+
+	return best_x, best_y
 end
 
 --- Return the joystick coordinates to hold based on a target angle
@@ -449,8 +519,10 @@ Engine.inputs_for_angle = function(goal, current_input, movement_mode)
 		end
 	end
 
+	local verify_xx99 = nil
 	if Settings.tas.strain_speed_target then
-		local xx99_goal = Engine.get_point99_trick_goal_angle(
+		local xx99_goal
+		xx99_goal, verify_xx99 = Engine.get_point99_trick_goal_angle(
 			action,
 			Memory.current.mario_f_speed,
 			current_input,
@@ -511,11 +583,34 @@ Engine.inputs_for_angle = function(goal, current_input, movement_mode)
 			minang = Angles.COUNT
 		end
 	end
-	return {
+	local result = {
 		angle = (Angles.ANGLE[minang].angle + Memory.current.camera_angle) % 65536,
 		X = Angles.ANGLE[minang].X,
 		Y = Angles.ANGLE[minang].Y,
 	}
+
+	if verify_xx99 ~= nil then
+		local x, y, mag, new_v, valid
+		x, y, mag = normalize_joystick(result.X, result.Y)
+		new_v, valid = verify_xx99(x, y, mag)
+		if not valid then
+			local drag = -1
+			if movement_mode == MovementModes.reverse_yaw then
+				drag = 2
+			end
+			local metric = function(x, y, mag)
+				local new_v, valid
+				new_v, valid = verify_xx99(x, y, mag)
+				if valid then
+					return new_v
+				end
+				return new_v + drag
+			end
+			result.X, result.Y = find_best_joystick(result.X, result.Y, metric, true)
+		end
+	end
+
+	return result
 end
 
 function Engine.get_speed_efficiency()
@@ -592,52 +687,24 @@ Engine.scale_inputs_to_magnitude = function(input, goal_mag, maximize_airspeed, 
 	if x0 ~= x0 then x0 = 0 end
 	if y0 ~= y0 then y0 = 0 end
 
-	-- bruteforce search in a neighbourhood for better inputs.
-	-- choice of search range is arbitrary but seems to work consistently.
-	local best_x, best_y = x0, y0
-	local best_score = nil
-	local x, y, mag
+	local x, y, mag, metric
 	x, y, mag = normalize_joystick(start_x, start_y)
 	local goal_angle = math.atan2(-y, x)
-	if debug then
-		local x00, y00, mag0
-		x00, y00, mag0 = normalize_joystick(x0, y0)
-		print(string.format(
-			"(%.1f, %.1f) [%f] -> (%d, %d) [%f]",
-			x, y, mag, x0, y0, mag0
-		))
-	end
-	for i = -32, 32 do
-		for j = -32, 32 do
-			x, y, mag = normalize_joystick(x0 + i, y0 + j)
-			if mag <= goal_mag then
-				local score = nil
-				if maximize_airspeed then
-					-- air movement hspd update without constant factors
-					local intendedYaw = Angles.atan2s(-y, x) + Memory.current.camera_angle
-					score = mag * mag * Angles.coss(intendedYaw - Memory.current.mario_facing_yaw)
-					if debug and score > 2280 then
-						print(string.format("(%d, %d) -> %d -> %f", x0 + i, y0 + j, intendedYaw, score))
-						print(string.format("\tatan2s(%d, %d) = %d", -y, x, intendedYaw))
-					end
-				else -- match closest angle
-					local angle = math.atan2(-y, x)
-					score = math.cos(angle - goal_angle)
-				end
-				if score ~= nil and (best_score == nil or score > best_score) then
-					best_score = score
-					best_x, best_y = x0 + i, y0 + j
-				end
-			end
+
+	if maximize_airspeed then
+		-- air movement hspd update without constant factors
+		metric = function(x, y, mag)
+			if mag > goal_mag then return nil end
+			local indendedYaw = Angles.atan2s(-y, x) + Memory.current.camera_angle
+			return mag * mag * Angles.coss(indendedYaw - Memory.current.mario_facing_yaw)
+		end
+	else -- match closest angle
+		metric = function(x, y, mag)
+			if mag > goal_mag then return nil end
+			local angle = math.atan2(-y, x)
+			return math.cos(angle - goal_angle)
 		end
 	end
-
-	-- normalize again in case it picks something in the deadzone
-	if math.abs(best_x) < 8 then
-		best_x = 0
-	end
-	if math.abs(best_y) < 8 then
-		best_y = 0
-	end
-	input.X, input.Y = best_x, best_y
+	
+	input.X, input.Y = find_best_joystick(x0, y0, metric)
 end
